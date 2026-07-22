@@ -2,9 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../pos/presentation/cubit/cart_cubit.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/database/database_helper.dart';
+import '../../../transaction/data/models/transaction_model.dart';
+import '../../../admin/data/models/voucher_model.dart';
 
-class CartCheckoutPage extends StatelessWidget {
+class CartCheckoutPage extends StatefulWidget {
   const CartCheckoutPage({super.key});
+
+  @override
+  State<CartCheckoutPage> createState() => _CartCheckoutPageState();
+}
+
+class _CartCheckoutPageState extends State<CartCheckoutPage> {
+  final TextEditingController _voucherController = TextEditingController();
+
+  Future<void> _applyVoucher() async {
+    final code = _voucherController.text.trim();
+    if (code.isEmpty) return;
+
+    final voucherData = await DatabaseHelper.instance.readVoucher(code);
+    if (voucherData != null) {
+      final voucher = VoucherModel.fromMap(voucherData);
+      final subtotal = context.read<CartCubit>().state.subtotal;
+
+      if (!voucher.isActive) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voucher sudah tidak aktif'), backgroundColor: Colors.red));
+        return;
+      }
+
+      if (subtotal < voucher.minPurchase) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Minimal pembelian ${formatRupiah(voucher.minPurchase)}'), backgroundColor: Colors.orange));
+        return;
+      }
+
+      if (mounted) {
+        context.read<CartCubit>().applyVoucher(voucher);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voucher berhasil digunakan!'), backgroundColor: Colors.green));
+      }
+    } else {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kode voucher tidak ditemukan'), backgroundColor: Colors.red));
+    }
+  }
+
+  @override
+  void dispose() {
+    _voucherController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,15 +76,7 @@ class CartCheckoutPage extends StatelessWidget {
                   Icon(Icons.shopping_bag_outlined, size: 100, color: Colors.brown.shade200),
                   const SizedBox(height: 16),
                   const Text('Keranjang Anda Kosong', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5D4037),
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Belanja Sekarang'),
-                  )
+                  const Text('Gunakan navigasi di bawah untuk kembali ke Beranda', style: TextStyle(fontSize: 14, color: Colors.grey)),
                 ],
               ),
             );
@@ -118,6 +154,55 @@ class CartCheckoutPage extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Voucher Input Field
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _voucherController,
+                              decoration: InputDecoration(
+                                hintText: 'Punya kode voucher?',
+                                hintStyle: const TextStyle(fontSize: 14),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              textCapitalization: TextCapitalization.characters,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8D6E63),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            onPressed: _applyVoucher,
+                            child: const Text('Terapkan'),
+                          ),
+                        ],
+                      ),
+                      if (state.appliedVoucher != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Voucher: ${state.appliedVoucher!.code}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                              InkWell(
+                                onTap: () {
+                                  _voucherController.clear();
+                                  context.read<CartCubit>().removeVoucher();
+                                },
+                                child: const Text('Hapus', style: TextStyle(color: Colors.red, fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(height: 1),
+                      ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -133,6 +218,16 @@ class CartCheckoutPage extends StatelessWidget {
                           Text(formatRupiah(state.tax), style: const TextStyle(fontWeight: FontWeight.w600)),
                         ],
                       ),
+                      if (state.discount > 0) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Diskon', style: TextStyle(color: Colors.green)),
+                            Text('- ${formatRupiah(state.discount)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                          ],
+                        ),
+                      ],
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 16),
                         child: Divider(height: 1),
@@ -155,13 +250,34 @@ class CartCheckoutPage extends StatelessWidget {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             elevation: 5,
                           ),
-                          onPressed: () {
-                            // Dummy Checkout Process
-                            context.read<CartCubit>().clearCart();
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Pembayaran Berhasil! Silakan ambil pesanan Anda.'), backgroundColor: Colors.green),
-                            );
+                          onPressed: () async {
+                            try {
+                              final state = context.read<CartCubit>().state;
+                              final newTransaction = TransactionRecord(
+                                id: 'TRX-${DateTime.now().millisecondsSinceEpoch}',
+                                date: DateTime.now(),
+                                subtotal: state.subtotal,
+                                tax: state.tax,
+                                discount: state.discount,
+                                total: state.total,
+                                paymentAmount: state.total, // Dummy payment amount
+                                change: 0.0,
+                              );
+                              await DatabaseHelper.instance.createTransaction(newTransaction);
+
+                              if (context.mounted) {
+                                context.read<CartCubit>().clearCart();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Pembayaran Berhasil! Pesanan tersimpan di riwayat.'), backgroundColor: Colors.green),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Gagal checkout: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
                           },
                           child: const Text('Bayar Sekarang', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         ),

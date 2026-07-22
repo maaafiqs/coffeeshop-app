@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../shop/presentation/pages/customer_home_page.dart';
-import '../../../admin/presentation/pages/admin_dashboard_page.dart';
+import '../../../shop/presentation/pages/customer_main_page.dart';
+import '../../../admin/presentation/pages/admin_main_page.dart';
 
 class RoleSelectionPage extends StatelessWidget {
   const RoleSelectionPage({super.key});
@@ -54,7 +55,7 @@ class RoleSelectionPage extends StatelessWidget {
                 color: const Color(0xFF5D4037), // Cokelat tua
                 onTap: () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const CustomerHomePage()),
+                  MaterialPageRoute(builder: (_) => const CustomerMainPage()),
                 ),
               ),
               const SizedBox(height: 16),
@@ -66,7 +67,7 @@ class RoleSelectionPage extends StatelessWidget {
                 color: const Color(0xFF8D6E63), // Cokelat muda
                 onTap: () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const AdminDashboardPage()),
+                  MaterialPageRoute(builder: (_) => const AdminMainPage()),
                 ),
               ),
             ],

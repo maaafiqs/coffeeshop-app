@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../../../features/product/data/models/product_model.dart';
+import '../../../features/transaction/data/models/transaction_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -11,6 +12,21 @@ class DatabaseHelper {
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('coffee_shop.db');
+    
+    // Safety check to ensure transactions table always exists
+    await _database!.execute('''
+CREATE TABLE IF NOT EXISTS transactions (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  subtotal REAL NOT NULL,
+  tax REAL NOT NULL,
+  discount REAL NOT NULL,
+  total REAL NOT NULL,
+  paymentAmount REAL NOT NULL,
+  change REAL NOT NULL
+)
+''');
+    
     return _database!;
   }
 
@@ -20,9 +36,42 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 3,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    const textType = 'TEXT NOT NULL';
+    const realType = 'REAL NOT NULL';
+    const integerType = 'INTEGER NOT NULL';
+    
+    if (oldVersion < 2) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS transactions (
+  id $textType PRIMARY KEY,
+  date $textType,
+  subtotal $realType,
+  tax $realType,
+  discount $realType,
+  total $realType,
+  paymentAmount $realType,
+  change $realType
+)
+''');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS vouchers (
+  code TEXT PRIMARY KEY,
+  discountType TEXT NOT NULL,
+  discountValue REAL NOT NULL,
+  minPurchase REAL NOT NULL,
+  isActive INTEGER NOT NULL
+)
+''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -40,6 +89,29 @@ CREATE TABLE products (
   price $realType,
   stock $integerType,
   imageUrl $textType
+)
+''');
+
+    await db.execute('''
+CREATE TABLE transactions (
+  id $textType PRIMARY KEY,
+  date $textType,
+  subtotal $realType,
+  tax $realType,
+  discount $realType,
+  total $realType,
+  paymentAmount $realType,
+  change $realType
+)
+''');
+
+    await db.execute('''
+CREATE TABLE vouchers (
+  code $textType PRIMARY KEY,
+  discountType $textType,
+  discountValue $realType,
+  minPurchase $realType,
+  isActive $integerType
 )
 ''');
 
@@ -136,6 +208,51 @@ CREATE TABLE products (
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  // --- CRUD Operations for Transactions ---
+
+  Future<TransactionRecord> createTransaction(TransactionRecord transaction) async {
+    final db = await instance.database;
+    await db.insert('transactions', transaction.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    return transaction;
+  }
+
+  Future<List<TransactionRecord>> readAllTransactions() async {
+    final db = await instance.database;
+    final orderBy = 'date DESC';
+    final result = await db.query('transactions', orderBy: orderBy);
+    return result.map((json) => TransactionRecord.fromMap(json)).toList();
+  }
+
+  // --- CRUD Operations for Vouchers ---
+  Future<void> createVoucher(Map<String, dynamic> voucher) async {
+    final db = await instance.database;
+    await db.insert('vouchers', voucher, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Map<String, dynamic>>> readAllVouchers() async {
+    final db = await instance.database;
+    return await db.query('vouchers');
+  }
+
+  Future<Map<String, dynamic>?> readVoucher(String code) async {
+    final db = await instance.database;
+    final result = await db.query('vouchers', where: 'code = ?', whereArgs: [code]);
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    return null;
+  }
+
+  Future<void> updateVoucher(Map<String, dynamic> voucher) async {
+    final db = await instance.database;
+    await db.update('vouchers', voucher, where: 'code = ?', whereArgs: [voucher['code']]);
+  }
+
+  Future<void> deleteVoucher(String code) async {
+    final db = await instance.database;
+    await db.delete('vouchers', where: 'code = ?', whereArgs: [code]);
   }
 
   Future close() async {

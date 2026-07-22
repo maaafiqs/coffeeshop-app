@@ -24,15 +24,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Katalog Produk', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF3E2723),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: () => Navigator.pushReplacementNamed(context, '/'),
-          )
-        ],
       ),
       body: BlocBuilder<ProductCubit, ProductState>(
         builder: (context, state) {
