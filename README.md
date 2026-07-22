@@ -1,4 +1,4 @@
-# aplikasi_penjualan_kasir
+# Coffeeshop_App
 
 A new Flutter project.
 
