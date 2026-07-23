@@ -5,6 +5,8 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../transaction/data/models/transaction_model.dart';
 import '../../../admin/data/models/voucher_model.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
 
 class CartCheckoutPage extends StatefulWidget {
   const CartCheckoutPage({super.key});
@@ -253,6 +255,12 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
                           onPressed: () async {
                             try {
                               final state = context.read<CartCubit>().state;
+                              final authState = context.read<AuthCubit>().state;
+                              String? currentUserId;
+                              if (authState is AuthAuthenticated) {
+                                currentUserId = authState.user.id;
+                              }
+                              
                               final newTransaction = TransactionRecord(
                                 id: 'TRX-${DateTime.now().millisecondsSinceEpoch}',
                                 date: DateTime.now(),
@@ -262,6 +270,16 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
                                 total: state.total,
                                 paymentAmount: state.total, // Dummy payment amount
                                 change: 0.0,
+                                userId: currentUserId,
+                                items: state.items
+                                    .map((item) => OrderItemRecord(
+                                          productId: item.product.id,
+                                          productName: item.product.name,
+                                          price: item.product.price,
+                                          quantity: item.quantity,
+                                          imageUrl: item.product.imageUrl,
+                                        ))
+                                    .toList(),
                               );
                               await DatabaseHelper.instance.createTransaction(newTransaction);
 

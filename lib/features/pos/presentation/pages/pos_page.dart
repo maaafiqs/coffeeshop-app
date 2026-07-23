@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/cart_cubit.dart';
 import '../../../product/data/models/product_model.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/database/database_helper.dart';
+import '../../../transaction/data/models/transaction_model.dart';
 
 class PosPage extends StatelessWidget {
   const PosPage({super.key});
@@ -70,9 +72,11 @@ class PosPage extends StatelessWidget {
         final mockProduct = Product(
             id: 'PROD-$index',
             name: 'Produk Premium $index',
+            description: 'Deskripsi produk kasir',
             category: 'Umum',
             price: 15000.0 + (index * 5000),
-            stock: 100);
+            stock: 100,
+            imageUrl: '');
 
         return Card(
           elevation: 2,
@@ -224,10 +228,43 @@ class PosPage extends StatelessWidget {
                         ),
                         onPressed: state.items.isEmpty
                             ? null
-                            : () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Lanjut ke proses pembayaran...')),
-                                );
+                            : () async {
+                                try {
+                                  final newTransaction = TransactionRecord(
+                                    id: 'TRX-ADM-${DateTime.now().millisecondsSinceEpoch}',
+                                    date: DateTime.now(),
+                                    subtotal: state.subtotal,
+                                    tax: state.tax,
+                                    discount: state.discount,
+                                    total: state.total,
+                                    paymentAmount: state.total,
+                                    change: 0.0,
+                                    userId: 'admin',
+                                    items: state.items
+                                        .map((item) => OrderItemRecord(
+                                              productId: item.product.id,
+                                              productName: item.product.name,
+                                              price: item.product.price,
+                                              quantity: item.quantity,
+                                              imageUrl: item.product.imageUrl,
+                                            ))
+                                        .toList(),
+                                  );
+                                  await DatabaseHelper.instance.createTransaction(newTransaction);
+                                  
+                                  if (context.mounted) {
+                                    context.read<CartCubit>().clearCart();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Pembayaran Berhasil!'), backgroundColor: Colors.green),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Gagal checkout: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
                               },
                         child: const Text('BAYAR SEKARANG', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),

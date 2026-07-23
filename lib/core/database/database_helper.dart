@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../../../features/product/data/models/product_model.dart';
 import '../../../features/transaction/data/models/transaction_model.dart';
+import '../../../features/auth/data/models/user_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -23,9 +24,15 @@ CREATE TABLE IF NOT EXISTS transactions (
   discount REAL NOT NULL,
   total REAL NOT NULL,
   paymentAmount REAL NOT NULL,
-  change REAL NOT NULL
+  change REAL NOT NULL,
+  items TEXT
 )
 ''');
+    
+    // Auto-migration check: add items column if missing in older DB instances
+    try {
+      await _database!.execute('ALTER TABLE transactions ADD COLUMN items TEXT');
+    } catch (_) {}
     
     return _database!;
   }
@@ -36,7 +43,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -45,7 +52,6 @@ CREATE TABLE IF NOT EXISTS transactions (
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     const textType = 'TEXT NOT NULL';
     const realType = 'REAL NOT NULL';
-    const integerType = 'INTEGER NOT NULL';
     
     if (oldVersion < 2) {
       await db.execute('''
@@ -57,7 +63,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   discount $realType,
   total $realType,
   paymentAmount $realType,
-  change $realType
+  change $realType,
+  items TEXT
 )
 ''');
     }
@@ -71,6 +78,27 @@ CREATE TABLE IF NOT EXISTS vouchers (
   isActive INTEGER NOT NULL
 )
 ''');
+    }
+    if (oldVersion < 4) {
+      try {
+        await db.execute('ALTER TABLE transactions ADD COLUMN items TEXT');
+      } catch (_) {}
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL
+)
+''');
+    }
+    if (oldVersion < 6) {
+      try {
+        await db.execute('ALTER TABLE transactions ADD COLUMN userId TEXT');
+      } catch (_) {}
     }
   }
 
@@ -93,6 +121,16 @@ CREATE TABLE products (
 ''');
 
     await db.execute('''
+CREATE TABLE users (
+  id $idType,
+  name $textType,
+  email $textType,
+  password $textType,
+  role $textType
+)
+''');
+
+    await db.execute('''
 CREATE TABLE transactions (
   id $textType PRIMARY KEY,
   date $textType,
@@ -101,7 +139,9 @@ CREATE TABLE transactions (
   discount $realType,
   total $realType,
   paymentAmount $realType,
-  change $realType
+  change $realType,
+  items TEXT,
+  userId TEXT
 )
 ''');
 
@@ -220,8 +260,15 @@ CREATE TABLE vouchers (
 
   Future<List<TransactionRecord>> readAllTransactions() async {
     final db = await instance.database;
-    final orderBy = 'date DESC';
+    const orderBy = 'date DESC';
     final result = await db.query('transactions', orderBy: orderBy);
+    return result.map((json) => TransactionRecord.fromMap(json)).toList();
+  }
+
+  Future<List<TransactionRecord>> readTransactionsByUser(String userId) async {
+    final db = await instance.database;
+    const orderBy = 'date DESC';
+    final result = await db.query('transactions', where: 'userId = ?', whereArgs: [userId], orderBy: orderBy);
     return result.map((json) => TransactionRecord.fromMap(json)).toList();
   }
 
@@ -253,6 +300,27 @@ CREATE TABLE vouchers (
   Future<void> deleteVoucher(String code) async {
     final db = await instance.database;
     await db.delete('vouchers', where: 'code = ?', whereArgs: [code]);
+  }
+
+  // --- Auth Operations ---
+  Future<UserModel> registerUser(UserModel user) async {
+    final db = await instance.database;
+    await db.insert('users', user.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    return user;
+  }
+
+  Future<UserModel?> loginUser(String email, String password) async {
+    final db = await instance.database;
+    final maps = await db.query(
+      'users',
+      where: 'email = ? AND password = ?',
+      whereArgs: [email, password],
+    );
+
+    if (maps.isNotEmpty) {
+      return UserModel.fromMap(maps.first);
+    }
+    return null;
   }
 
   Future close() async {

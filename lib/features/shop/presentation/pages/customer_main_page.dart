@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'customer_home_page.dart';
 import 'order_history_page.dart';
 import 'cart_checkout_page.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'customer_settings_page.dart';
-
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
 class CustomerMainPage extends StatefulWidget {
   const CustomerMainPage({super.key});
 
@@ -42,7 +44,41 @@ class _CustomerMainPageState extends State<CustomerMainPage> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
+            onTap: (index) {
+              if (index == 1 || index == 2) {
+                final authState = context.read<AuthCubit>().state;
+                if (authState is AuthGuest) {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Akses Dibatasi', style: TextStyle(color: Color(0xFF3E2723), fontWeight: FontWeight.bold)),
+                      content: Text(index == 1 ? 'Silakan login untuk melihat keranjang Anda.' : 'Silakan login untuk melihat riwayat pesanan Anda.'),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5D4037),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            Navigator.pushReplacementNamed(context, '/'); // Go to login/role selection
+                          },
+                          child: const Text('Login Sekarang'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+              }
+              setState(() => _currentIndex = index);
+            },
             backgroundColor: Colors.white,
             type: BottomNavigationBarType.fixed, // Penting agar background tidak putih polos menyatu dan tulisan terlihat semua
             selectedItemColor: const Color(0xFF5D4037),

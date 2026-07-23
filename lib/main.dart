@@ -4,6 +4,8 @@ import 'features/pos/presentation/cubit/cart_cubit.dart';
 import 'features/product/presentation/cubit/product_cubit.dart';
 import 'features/auth/presentation/pages/role_selection_page.dart';
 
+import 'features/auth/presentation/cubit/auth_cubit.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
@@ -16,6 +18,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider(create: (context) => AuthCubit()),
         BlocProvider(create: (context) => ProductCubit()),
         BlocProvider(create: (context) => CartCubit()),
       ],

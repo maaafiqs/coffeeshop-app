@@ -5,7 +5,8 @@ import '../../../product/presentation/cubit/product_state.dart';
 import '../../../product/data/models/product_model.dart';
 import '../../../pos/presentation/cubit/cart_cubit.dart';
 import '../../../../core/utils/currency_formatter.dart';
-import 'cart_checkout_page.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
 
 class CustomerHomePage extends StatefulWidget {
   const CustomerHomePage({super.key});
@@ -420,6 +421,38 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                     ),
                     InkWell(
                       onTap: () {
+                        final authState = context.read<AuthCubit>().state;
+                        if (authState is AuthGuest) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Silakan Login', style: TextStyle(color: Color(0xFF3E2723), fontWeight: FontWeight.bold)),
+                              content: const Text('Anda harus login atau mendaftar terlebih dahulu untuk melakukan pemesanan.'),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF5D4037),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    Navigator.pushReplacementNamed(context, '/'); // Go to role selection / login
+                                  },
+                                  child: const Text('Login Sekarang'),
+                                ),
+                              ],
+                            ),
+                          );
+                          return;
+                        }
+
                         context.read<CartCubit>().addProduct(product);
                         ScaffoldMessenger.of(context).clearSnackBars();
                         ScaffoldMessenger.of(context).showSnackBar(
