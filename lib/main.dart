@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'features/pos/presentation/cubit/cart_cubit.dart';
 import 'features/product/presentation/cubit/product_cubit.dart';
-import 'features/auth/presentation/pages/role_selection_page.dart';
+import 'features/shop/presentation/pages/customer_main_page.dart';
 
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 
@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         initialRoute: '/',
         routes: {
-          '/': (context) => const RoleSelectionPage(),
+          '/': (context) => const CustomerMainPage(),
         },
       ),
     );

@@ -1,8 +1,10 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../../../features/product/data/models/product_model.dart';
-import '../../../features/transaction/data/models/transaction_model.dart';
-import '../../../features/auth/data/models/user_model.dart';
+import '../../features/product/data/models/product_model.dart';
+import '../../features/transaction/data/models/transaction_model.dart';
+import '../../features/admin/data/models/voucher_model.dart';
+import '../../features/auth/data/models/user_model.dart';
+import '../../features/admin/data/models/banner_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -12,28 +14,7 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('coffee_shop.db');
-    
-    // Safety check to ensure transactions table always exists
-    await _database!.execute('''
-CREATE TABLE IF NOT EXISTS transactions (
-  id TEXT PRIMARY KEY,
-  date TEXT NOT NULL,
-  subtotal REAL NOT NULL,
-  tax REAL NOT NULL,
-  discount REAL NOT NULL,
-  total REAL NOT NULL,
-  paymentAmount REAL NOT NULL,
-  change REAL NOT NULL,
-  items TEXT
-)
-''');
-    
-    // Auto-migration check: add items column if missing in older DB instances
-    try {
-      await _database!.execute('ALTER TABLE transactions ADD COLUMN items TEXT');
-    } catch (_) {}
-    
+    _database = await _initDB('coffeeshop.db');
     return _database!;
   }
 
@@ -43,7 +24,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -100,6 +81,23 @@ CREATE TABLE IF NOT EXISTS users (
         await db.execute('ALTER TABLE transactions ADD COLUMN userId TEXT');
       } catch (_) {}
     }
+    if (oldVersion < 7) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS banners (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT NOT NULL,
+  imageUrl TEXT NOT NULL,
+  isActive INTEGER NOT NULL
+)
+''');
+    }
+
+    // Seed default admin account
+    await db.execute('''
+INSERT OR IGNORE INTO users (id, name, email, password, role)
+VALUES ('admin-default', 'Administrator', 'admin@gmail.com', 'admin', 'admin')
+''');
   }
 
   Future _createDB(Database db, int version) async {
@@ -155,6 +153,25 @@ CREATE TABLE vouchers (
 )
 ''');
 
+    await db.execute('''
+CREATE TABLE banners (
+  id $idType,
+  title $textType,
+  subtitle $textType,
+  imageUrl $textType,
+  isActive $integerType
+)
+''');
+
+    // Seed default admin
+    await db.insert('users', {
+      'id': 'admin-default',
+      'name': 'Administrator',
+      'email': 'admin@gmail.com',
+      'password': 'admin',
+      'role': 'admin',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
     // Seeding Initial Data for Coffee Shop
     final initialProducts = [
       Product(
@@ -164,7 +181,7 @@ CREATE TABLE vouchers (
         category: 'Coffee',
         price: 35000,
         stock: 50,
-        imageUrl: 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?q=80&w=600&auto=format&fit=crop', // Kopi estetik
+        imageUrl: 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?q=80&w=600&auto=format&fit=crop',
       ),
       Product(
         id: 'CFF-002',
@@ -173,7 +190,7 @@ CREATE TABLE vouchers (
         category: 'Non-Coffee',
         price: 32000,
         stock: 40,
-        imageUrl: 'https://images.unsplash.com/photo-1536514072410-5019a3c69182?q=80&w=600&auto=format&fit=crop', // Matcha
+        imageUrl: 'https://images.unsplash.com/photo-1536514072410-5019a3c69182?q=80&w=600&auto=format&fit=crop',
       ),
       Product(
         id: 'CFF-003',
@@ -182,7 +199,7 @@ CREATE TABLE vouchers (
         category: 'Coffee',
         price: 25000,
         stock: 100,
-        imageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop', // Americano
+        imageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop',
       ),
       Product(
         id: 'CFF-004',
@@ -191,7 +208,7 @@ CREATE TABLE vouchers (
         category: 'Frappe',
         price: 40000,
         stock: 30,
-        imageUrl: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=600&auto=format&fit=crop', // Frappe
+        imageUrl: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=600&auto=format&fit=crop',
       ),
     ];
 
@@ -226,7 +243,7 @@ CREATE TABLE vouchers (
 
   Future<List<Product>> readAllProducts() async {
     final db = await instance.database;
-    final orderBy = 'name ASC';
+    const orderBy = 'name ASC';
     final result = await db.query('products', orderBy: orderBy);
     return result.map((json) => Product.fromMap(json)).toList();
   }
@@ -309,6 +326,16 @@ CREATE TABLE vouchers (
     return user;
   }
 
+  Future<void> updateUser(UserModel user) async {
+    final db = await instance.database;
+    await db.update(
+      'users',
+      user.toMap(),
+      where: 'id = ?',
+      whereArgs: [user.id],
+    );
+  }
+
   Future<UserModel?> loginUser(String email, String password) async {
     final db = await instance.database;
     final maps = await db.query(
@@ -320,7 +347,44 @@ CREATE TABLE vouchers (
     if (maps.isNotEmpty) {
       return UserModel.fromMap(maps.first);
     }
+
+    // Fallback: Default Admin Login
+    if ((email == 'admin@gmail.com' || email == 'admin') && password == 'admin') {
+      final defaultAdmin = UserModel(
+        id: 'admin-default',
+        name: 'Administrator',
+        email: 'admin@gmail.com',
+        password: 'admin',
+        role: 'admin',
+      );
+      await registerUser(defaultAdmin);
+      return defaultAdmin;
+    }
+
     return null;
+  }
+
+  Future<List<UserModel>> readAllUsersByRole(String role) async {
+    final db = await instance.database;
+    final result = await db.query('users', where: 'role = ?', whereArgs: [role]);
+    return result.map((json) => UserModel.fromMap(json)).toList();
+  }
+
+  // --- CRUD Operations for Banners ---
+  Future<void> createBanner(BannerModel banner) async {
+    final db = await instance.database;
+    await db.insert('banners', banner.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<BannerModel>> readAllBanners() async {
+    final db = await instance.database;
+    final result = await db.query('banners');
+    return result.map((json) => BannerModel.fromMap(json)).toList();
+  }
+
+  Future<void> deleteBanner(String id) async {
+    final db = await instance.database;
+    await db.delete('banners', where: 'id = ?', whereArgs: [id]);
   }
 
   Future close() async {

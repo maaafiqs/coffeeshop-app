@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'admin_dashboard_page.dart';
-import 'voucher_management_page.dart';
 import 'admin_settings_page.dart';
+import 'sales_report_page.dart';
+import 'employee_management_page.dart';
 
 class AdminMainPage extends StatefulWidget {
   const AdminMainPage({super.key});
@@ -15,7 +16,8 @@ class _AdminMainPageState extends State<AdminMainPage> {
 
   final List<Widget> _pages = [
     const AdminDashboardPage(),
-    const VoucherManagementPage(),
+    const SalesReportPage(),
+    const EmployeeManagementPage(),
     const AdminSettingsPage(),
   ];
 
@@ -56,12 +58,16 @@ class _AdminMainPageState extends State<AdminMainPage> {
                 label: 'Katalog',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.local_offer_rounded),
-                label: 'Voucher',
+                icon: Icon(Icons.bar_chart_rounded),
+                label: 'Laporan',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.people_alt_rounded),
+                label: 'Karyawan',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.settings_rounded),
-                label: 'Setting',
+                label: 'Pengaturan',
               ),
             ],
           ),

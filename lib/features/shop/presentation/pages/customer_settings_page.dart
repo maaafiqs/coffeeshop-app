@@ -4,6 +4,7 @@ import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/cubit/auth_state.dart';
 import 'profile_page.dart';
 import 'notification_page.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 
 class CustomerSettingsPage extends StatelessWidget {
   const CustomerSettingsPage({super.key});
@@ -11,7 +12,7 @@ class CustomerSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthCubit>().state;
-    final isGuest = authState is AuthGuest;
+    final isGuest = authState is! AuthAuthenticated;
     final userName = authState is AuthAuthenticated ? authState.user.name : 'Tamu';
 
     return Scaffold(
@@ -81,23 +82,37 @@ class CustomerSettingsPage extends StatelessWidget {
             }
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isGuest ? const Color(0xFF5D4037) : Colors.red.shade100,
-              foregroundColor: isGuest ? Colors.white : Colors.red.shade900,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 0,
-            ),
-            onPressed: () {
-              if (!isGuest) {
+          if (!isGuest)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade50,
+                foregroundColor: Colors.red.shade700,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              onPressed: () {
                 context.read<AuthCubit>().logout();
-              }
-              Navigator.pushReplacementNamed(context, '/');
-            },
-            icon: Icon(isGuest ? Icons.login : Icons.logout),
-            label: Text(isGuest ? 'Login / Daftar' : 'Keluar', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
+                Navigator.pushReplacementNamed(context, '/'); // this triggers restart of app flow
+              },
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Keluar Akun', style: TextStyle(fontWeight: FontWeight.bold)),
+            )
+          else
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5D4037),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginPage()));
+              },
+              icon: const Icon(Icons.login_rounded),
+              label: const Text('Masuk / Daftar', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
         ],
       ),
     );

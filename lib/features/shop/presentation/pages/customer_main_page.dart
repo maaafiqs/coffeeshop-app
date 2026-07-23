@@ -6,6 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'customer_settings_page.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/cubit/auth_state.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import '../../../pos/presentation/cubit/cart_cubit.dart';
+
 class CustomerMainPage extends StatefulWidget {
   const CustomerMainPage({super.key});
 
@@ -16,12 +19,20 @@ class CustomerMainPage extends StatefulWidget {
 class _CustomerMainPageState extends State<CustomerMainPage> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const CustomerHomePage(),
-    const CartCheckoutPage(),
-    const OrderHistoryPage(),
-    const CustomerSettingsPage(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      CustomerHomePage(onNavigateToCart: () {
+        setState(() => _currentIndex = 1);
+      }),
+      const CartCheckoutPage(),
+      const OrderHistoryPage(),
+      const CustomerSettingsPage(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +58,7 @@ class _CustomerMainPageState extends State<CustomerMainPage> {
             onTap: (index) {
               if (index == 1 || index == 2) {
                 final authState = context.read<AuthCubit>().state;
-                if (authState is AuthGuest) {
+                if (authState is! AuthAuthenticated) {
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
@@ -67,7 +78,7 @@ class _CustomerMainPageState extends State<CustomerMainPage> {
                           ),
                           onPressed: () {
                             Navigator.pop(ctx);
-                            Navigator.pushReplacementNamed(context, '/'); // Go to login/role selection
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginPage()));
                           },
                           child: const Text('Login Sekarang'),
                         ),
@@ -88,20 +99,31 @@ class _CustomerMainPageState extends State<CustomerMainPage> {
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
             elevation: 0,
-            items: const [
-              BottomNavigationBarItem(
+            items: [
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded),
                 label: 'Beranda',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_cart_rounded),
+                icon: BlocBuilder<CartCubit, CartState>(
+                  builder: (context, state) {
+                    final int totalItems = state.items.fold(0, (sum, item) => sum + item.quantity);
+                    if (totalItems > 0) {
+                      return Badge(
+                        label: Text(totalItems.toString()),
+                        child: const Icon(Icons.shopping_cart_rounded),
+                      );
+                    }
+                    return const Icon(Icons.shopping_cart_rounded);
+                  },
+                ),
                 label: 'Keranjang',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.history_rounded),
                 label: 'Riwayat',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.settings_rounded),
                 label: 'Setting',
               ),

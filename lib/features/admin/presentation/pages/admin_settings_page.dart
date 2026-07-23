@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import 'banner_management_page.dart';
+import 'voucher_management_page.dart';
 
 class AdminSettingsPage extends StatelessWidget {
   const AdminSettingsPage({super.key});
@@ -28,10 +32,24 @@ class AdminSettingsPage extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           _buildSettingsItem(icon: Icons.store, title: 'Profil Toko', onTap: () {}),
-          _buildSettingsItem(icon: Icons.people, title: 'Kelola Karyawan', onTap: () {}),
-          _buildSettingsItem(icon: Icons.analytics, title: 'Laporan Penjualan', onTap: () {}),
           _buildSettingsItem(icon: Icons.print, title: 'Pengaturan Printer', onTap: () {}),
-          const SizedBox(height: 24),
+          _buildSettingsItem(
+              icon: Icons.local_offer, 
+              title: 'Kelola Voucher', 
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherManagementPage()));
+              }
+            ),
+            _buildSettingsItem(
+              icon: Icons.campaign, 
+              title: 'Kelola Info & Promo Beranda', 
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const BannerManagementPage()));
+              }
+            ),
+            _buildSettingsItem(icon: Icons.notifications, title: 'Notifikasi Admin', onTap: () {}),
+            _buildSettingsItem(icon: Icons.security, title: 'Keamanan Akun', onTap: () {}),
+            const SizedBox(height: 32),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade100,
@@ -41,6 +59,7 @@ class AdminSettingsPage extends StatelessWidget {
               elevation: 0,
             ),
             onPressed: () {
+              context.read<AuthCubit>().logout();
               Navigator.pushReplacementNamed(context, '/');
             },
             icon: const Icon(Icons.logout),

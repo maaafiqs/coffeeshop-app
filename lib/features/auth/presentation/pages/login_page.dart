@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/database/database_helper.dart';
 import '../cubit/auth_cubit.dart';
 import '../../../shop/presentation/pages/customer_main_page.dart';
+import '../../../admin/presentation/pages/admin_main_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -36,7 +37,13 @@ class _LoginPageState extends State<LoginPage> {
       if (user != null) {
         if (mounted) {
           context.read<AuthCubit>().loginAsUser(user);
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerMainPage()));
+          if (user.role == 'admin') {
+            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AdminMainPage()), (route) => false);
+          } else {
+            // For customer, since they might be coming from restricted tabs or settings, we can pushReplacement to home or pop.
+            // Pushing replacement to CustomerMainPage resets the state to Home.
+            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const CustomerMainPage()), (route) => false);
+          }
         }
       } else {
         if (mounted) {
@@ -58,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void _loginAsGuest() {
     context.read<AuthCubit>().loginAsGuest();
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerMainPage()));
+    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const CustomerMainPage()), (route) => false);
   }
 
   @override

@@ -7,6 +7,7 @@ import '../../../transaction/data/models/transaction_model.dart';
 import '../../../admin/data/models/voucher_model.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/cubit/auth_state.dart';
+import 'payment_page.dart';
 
 class CartCheckoutPage extends StatefulWidget {
   const CartCheckoutPage({super.key});
@@ -281,12 +282,13 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
                                         ))
                                     .toList(),
                               );
-                              await DatabaseHelper.instance.createTransaction(newTransaction);
-
+                              
                               if (context.mounted) {
-                                context.read<CartCubit>().clearCart();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Pembayaran Berhasil! Pesanan tersimpan di riwayat.'), backgroundColor: Colors.green),
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PaymentPage(pendingTransaction: newTransaction),
+                                  ),
                                 );
                               }
                             } catch (e) {

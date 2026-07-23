@@ -13,6 +13,12 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthAuthenticated(user: user));
   }
 
+  void updateProfile(UserModel updatedUser) {
+    if (state is AuthAuthenticated) {
+      emit(AuthAuthenticated(user: updatedUser));
+    }
+  }
+
   void logout() {
     emit(AuthInitial());
   }
