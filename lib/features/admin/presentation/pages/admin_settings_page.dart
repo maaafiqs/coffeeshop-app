@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import 'banner_management_page.dart';
 import 'voucher_management_page.dart';
+import 'store_profile_page.dart';
+import 'admin_notifications_page.dart';
+import 'account_security_page.dart';
 
 class AdminSettingsPage extends StatelessWidget {
   const AdminSettingsPage({super.key});
@@ -31,7 +34,9 @@ class AdminSettingsPage extends StatelessWidget {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
           ),
           const SizedBox(height: 32),
-          _buildSettingsItem(icon: Icons.store, title: 'Profil Toko', onTap: () {}),
+          _buildSettingsItem(icon: Icons.store, title: 'Profil Toko', onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreProfilePage()));
+          }),
           _buildSettingsItem(icon: Icons.print, title: 'Pengaturan Printer', onTap: () {}),
           _buildSettingsItem(
               icon: Icons.local_offer, 
@@ -47,8 +52,12 @@ class AdminSettingsPage extends StatelessWidget {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const BannerManagementPage()));
               }
             ),
-            _buildSettingsItem(icon: Icons.notifications, title: 'Notifikasi Admin', onTap: () {}),
-            _buildSettingsItem(icon: Icons.security, title: 'Keamanan Akun', onTap: () {}),
+            _buildSettingsItem(icon: Icons.notifications, title: 'Notifikasi Admin', onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminNotificationsPage()));
+            }),
+            _buildSettingsItem(icon: Icons.security, title: 'Keamanan Akun', onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountSecurityPage()));
+            }),
             const SizedBox(height: 32),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
