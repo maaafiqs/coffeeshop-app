@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/database/database_helper.dart';
-import '../../../../core/services/firestore_service.dart';
 import '../../../transaction/data/models/transaction_model.dart';
 import '../../../../core/utils/currency_formatter.dart';
 
@@ -39,7 +38,6 @@ class _AdminOrderManagementPageState extends State<AdminOrderManagementPage> {
       where: 'id = ?',
       whereArgs: [id],
     );
-    await FirestoreService.instance.updateTransactionStatus(id, newStatus);
     _loadTransactions();
   }
 

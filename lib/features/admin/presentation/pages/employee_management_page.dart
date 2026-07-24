@@ -60,13 +60,25 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
                     ),
                     title: Text(emp.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(emp.email, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(emp.role.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(emp.role.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                        ),
+                        if (emp.id != 'admin-default') ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                            onPressed: () => _confirmDelete(context, emp),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 );
@@ -148,6 +160,30 @@ class _EmployeeManagementPageState extends State<EmployeeManagementPage> {
               }
             },
             child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, UserModel emp) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Admin?'),
+        content: Text('Apakah Anda yakin ingin menghapus admin "${emp.name}"?\nTindakan ini tidak dapat dibatalkan.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await DatabaseHelper.instance.deleteUser(emp.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Admin berhasil dihapus'), backgroundColor: Colors.green));
+                _loadEmployees();
+              }
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

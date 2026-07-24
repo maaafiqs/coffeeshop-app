@@ -32,6 +32,10 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# Workaround for MSVC 17.10+ linking errors (LNK2019 __std_find_first_of_trivial_pos_1) with older Firebase C++ SDK
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_DISABLE_VECTOR_ANNOTATION /D_DISABLE_STRING_ANNOTATION /D_DISABLE_VECTORIZED_STD_ALGORITHMS")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D_DISABLE_VECTOR_ANNOTATION /D_DISABLE_STRING_ANNOTATION /D_DISABLE_VECTORIZED_STD_ALGORITHMS")
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
@@ -55,7 +59,7 @@ add_subdirectory("runner")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
-include(flutter/generated_plugins.cmake)
+include(flutter/generated_plugins.cmake OPTIONAL)
 
 
 # === Installation ===

@@ -6,6 +6,7 @@ import '../../features/admin/data/models/voucher_model.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/admin/data/models/banner_model.dart';
 import '../../features/product/data/models/topping_model.dart';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -39,6 +40,44 @@ class DatabaseHelper {
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
+  }
+
+  Future<String> getDatabaseFilePath() async {
+    final dbPath = await getDatabasesPath();
+    return join(dbPath, 'coffeeshop.db');
+  }
+
+  Future<void> backupDatabase(String destinationPath) async {
+    if (kIsWeb) throw UnsupportedError('Backup is not supported on Web');
+    final dbPath = await getDatabaseFilePath();
+    final file = File(dbPath);
+    if (await file.exists()) {
+      await file.copy(destinationPath);
+    } else {
+      throw Exception('Database file not found');
+    }
+  }
+
+  Future<void> restoreDatabase(String sourcePath) async {
+    if (kIsWeb) throw UnsupportedError('Restore is not supported on Web');
+    final dbPath = await getDatabaseFilePath();
+    final sourceFile = File(sourcePath);
+    
+    if (await sourceFile.exists()) {
+      // Close existing database connection
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+      
+      // Copy the backup to the active database location
+      await sourceFile.copy(dbPath);
+      
+      // Re-initialize the database connection
+      _database = await _initDB('coffeeshop.db');
+    } else {
+      throw Exception('Backup file not found');
+    }
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -525,6 +564,15 @@ CREATE TABLE banners (
     final db = await instance.database;
     final result = await db.query('users', where: 'role = ?', whereArgs: [role]);
     return result.map((json) => UserModel.fromMap(json)).toList();
+  }
+
+  Future<void> deleteUser(String id) async {
+    final db = await instance.database;
+    await db.delete(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // --- CRUD Operations for Banners ---

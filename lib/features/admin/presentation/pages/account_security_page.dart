@@ -4,6 +4,9 @@ import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/cubit/auth_state.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../../core/database/database_helper.dart';
+import 'package:file_picker/file_picker.dart';
+import '../pages/admin_main_page.dart';
+import '../../../product/presentation/cubit/product_cubit.dart';
 
 class AccountSecurityPage extends StatefulWidget {
   const AccountSecurityPage({super.key});
@@ -72,6 +75,67 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
     }
   }
 
+  void _backupDatabase() async {
+    try {
+      final String? selectedDirectory = await FilePicker.getDirectoryPath(
+        dialogTitle: 'Pilih Folder untuk Menyimpan Backup',
+      );
+      if (selectedDirectory != null) {
+        final destPath = '$selectedDirectory/coffeeshop_backup.db';
+        await DatabaseHelper.instance.backupDatabase(destPath);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Database berhasil di-backup ke:\n$destPath'), backgroundColor: Colors.green));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal backup: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  void _restoreDatabase() async {
+    try {
+      FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.any,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final String sourcePath = result.files.single.path!;
+        
+        if (!mounted) return;
+        bool? confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Konfirmasi Restore'),
+            content: const Text('Apakah Anda yakin ingin me-restore database? Semua data saat ini akan ditimpa.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restore', style: TextStyle(color: Colors.red))),
+            ],
+          ),
+        );
+
+        if (confirm == true) {
+          await DatabaseHelper.instance.restoreDatabase(sourcePath);
+          if (mounted) {
+            context.read<ProductCubit>().fetchProducts();
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Database berhasil di-restore.'), backgroundColor: Colors.green));
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminMainPage()),
+              (route) => false,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal restore: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,6 +169,44 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
               ),
               onPressed: _changePassword,
               child: const Text('Simpan Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 48),
+            const Divider(),
+            const SizedBox(height: 24),
+            const Text('Backup & Restore Database', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF3E2723)), textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            const Text('Amankan data Anda dengan melakukan backup secara berkala.', style: TextStyle(fontSize: 14, color: Colors.grey), textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF5D4037),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF5D4037))),
+                    ),
+                    onPressed: _backupDatabase,
+                    icon: const Icon(Icons.download),
+                    label: const Text('Backup'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF5D4037),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFF5D4037))),
+                    ),
+                    onPressed: _restoreDatabase,
+                    icon: const Icon(Icons.upload),
+                    label: const Text('Restore'),
+                  ),
+                ),
+              ],
             )
           ],
         ),
