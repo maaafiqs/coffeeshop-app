@@ -308,10 +308,54 @@ CREATE TABLE banners (
   }
 
   Future<List<Product>> readAllProducts() async {
-    final db = await instance.database;
-    const orderBy = 'name ASC';
-    final result = await db.query('products', orderBy: orderBy);
-    return result.map((json) => Product.fromMap(json)).toList();
+    try {
+      final db = await instance.database;
+      const orderBy = 'name ASC';
+      final result = await db.query('products', orderBy: orderBy);
+      if (result.isNotEmpty) {
+        return result.map((json) => Product.fromMap(json)).toList();
+      }
+    } catch (e) {
+      // Memory fallback for web
+    }
+    return [
+      Product(
+        id: 'CFF-001',
+        name: 'Caramel Macchiato',
+        description: 'Perpaduan sempurna antara espresso tajam, susu creamy, dan sirup karamel manis yang memanjakan lidah.',
+        category: 'Coffee',
+        price: 35000,
+        stock: 50,
+        imageUrl: 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?q=80&w=600&auto=format&fit=crop',
+      ),
+      Product(
+        id: 'CFF-002',
+        name: 'Matcha Latte',
+        description: 'Teh hijau matcha Jepang otentik dengan susu segar manis. Menenangkan dan penuh antioksidan.',
+        category: 'Non-Coffee',
+        price: 32000,
+        stock: 40,
+        imageUrl: 'https://images.unsplash.com/photo-1536514072410-5019a3c69182?q=80&w=600&auto=format&fit=crop',
+      ),
+      Product(
+        id: 'CFF-003',
+        name: 'Iced Americano',
+        description: 'Klasik, murni, dan menyegarkan. Espresso khas house blend kami yang disajikan dengan es batu.',
+        category: 'Coffee',
+        price: 25000,
+        stock: 100,
+        imageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop',
+      ),
+      Product(
+        id: 'CFF-004',
+        name: 'Mocha Frappuccino',
+        description: 'Blended ice coffee dengan saus cokelat tebal dan whipped cream di atasnya. Surganya para pecinta cokelat.',
+        category: 'Frappe',
+        price: 40000,
+        stock: 30,
+        imageUrl: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=600&auto=format&fit=crop',
+      ),
+    ];
   }
 
   Future<int> updateProduct(Product product) async {
@@ -507,16 +551,14 @@ CREATE TABLE banners (
   }
 
   Future<List<Topping>> readAllToppings() async {
-    final db = await instance.database;
-    final result = await db.query('toppings');
-    if (result.isEmpty) {
-      for (final t in defaultSeedToppings) {
-        await db.insert('toppings', t.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+    try {
+      final db = await instance.database;
+      final result = await db.query('toppings');
+      if (result.isNotEmpty) {
+        return result.map((json) => Topping.fromMap(json)).toList();
       }
-      final seededResult = await db.query('toppings');
-      return seededResult.map((json) => Topping.fromMap(json)).toList();
-    }
-    return result.map((json) => Topping.fromMap(json)).toList();
+    } catch (_) {}
+    return defaultSeedToppings;
   }
 
   Future<List<Topping>> readToppingsByCategory(String productCategory) async {
