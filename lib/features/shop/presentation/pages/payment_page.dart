@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../transaction/data/models/transaction_model.dart';
 import '../../../../core/database/database_helper.dart';
+import '../../../../core/services/firestore_service.dart';
 import '../../../pos/presentation/cubit/cart_cubit.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
@@ -181,8 +182,9 @@ class _PaymentPageState extends State<PaymentPage> {
     // Simulate network delay
     await Future.delayed(const Duration(seconds: 2));
 
-    // Save transaction
+    // Save transaction locally and to Cloud Firestore
     await DatabaseHelper.instance.createTransaction(widget.pendingTransaction);
+    await FirestoreService.instance.saveTransaction(widget.pendingTransaction);
 
     // Calculate & award loyalty points (1 point per Rp 10.000 spent)
     int pointsEarned = (widget.pendingTransaction.total / 10000).floor();

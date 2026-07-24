@@ -9,11 +9,21 @@ import 'features/shop/presentation/cubit/favorite_cubit.dart';
 
 import 'dart:io' show Platform;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
+
   if (kIsWeb) {
     // Database unsupported on web without custom impl, but handle gracefully
   } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
