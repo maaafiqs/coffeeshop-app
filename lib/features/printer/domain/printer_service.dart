@@ -33,6 +33,9 @@ class PrinterService {
       
       for (var item in items) {
         String itemName = item.product.name;
+        if (item.selectedToppings.isNotEmpty) {
+          itemName += " (+${item.toppingsText})";
+        }
         String qty = '${item.quantity}x';
         String price = formatRupiah(item.subtotal);
         

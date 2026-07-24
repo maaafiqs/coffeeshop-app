@@ -4,6 +4,7 @@ import '../../../transaction/data/models/transaction_model.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../pos/presentation/cubit/cart_cubit.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
 
 class PaymentPage extends StatefulWidget {
   final TransactionRecord pendingTransaction;
@@ -183,6 +184,16 @@ class _PaymentPageState extends State<PaymentPage> {
     // Save transaction
     await DatabaseHelper.instance.createTransaction(widget.pendingTransaction);
 
+    // Calculate & award loyalty points (1 point per Rp 10.000 spent)
+    int pointsEarned = (widget.pendingTransaction.total / 10000).floor();
+    if (widget.pendingTransaction.userId != null && pointsEarned > 0) {
+      await DatabaseHelper.instance.updateUserPoints(widget.pendingTransaction.userId!, pointsEarned);
+      final updatedUser = await DatabaseHelper.instance.getUserById(widget.pendingTransaction.userId!);
+      if (updatedUser != null && context.mounted) {
+        context.read<AuthCubit>().loginAsUser(updatedUser);
+      }
+    }
+
     if (context.mounted) {
       Navigator.pop(context); // Close loading
       
@@ -198,12 +209,33 @@ class _PaymentPageState extends State<PaymentPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 80),
-              const SizedBox(height: 16),
+              const Icon(Icons.check_circle, color: Colors.green, size: 70),
+              const SizedBox(height: 12),
               const Text('Transaksi Berhasil!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))),
-              const SizedBox(height: 8),
-              const Text('Terima kasih atas pesanan Anda. Silakan tunggu kopi Anda disiapkan.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 24),
+              const SizedBox(height: 6),
+              const Text('Terima kasih atas pesanan Anda. Silakan tunggu pesanan Anda disiapkan.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
+              if (pointsEarned > 0) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('👑 ', style: TextStyle(fontSize: 16)),
+                      Text(
+                        '+$pointsEarned Poin Loyalitas Diperoleh!',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

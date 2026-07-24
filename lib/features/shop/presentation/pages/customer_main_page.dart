@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'customer_home_page.dart';
 import 'order_history_page.dart';
 import 'cart_checkout_page.dart';
+import 'customer_favorites_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'customer_settings_page.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
@@ -26,9 +27,12 @@ class _CustomerMainPageState extends State<CustomerMainPage> {
     super.initState();
     _pages = [
       CustomerHomePage(onNavigateToCart: () {
-        setState(() => _currentIndex = 1);
+        setState(() => _currentIndex = 2);
       }),
-      const CartCheckoutPage(),
+      const CustomerFavoritesPage(),
+      CartCheckoutPage(onNavigateToHome: () {
+        setState(() => _currentIndex = 0);
+      }),
       const OrderHistoryPage(),
       const CustomerSettingsPage(),
     ];
@@ -56,14 +60,18 @@ class _CustomerMainPageState extends State<CustomerMainPage> {
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: (index) {
-              if (index == 1 || index == 2) {
+              if (index == 1 || index == 2 || index == 3) {
                 final authState = context.read<AuthCubit>().state;
                 if (authState is! AuthAuthenticated) {
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Akses Dibatasi', style: TextStyle(color: Color(0xFF3E2723), fontWeight: FontWeight.bold)),
-                      content: Text(index == 1 ? 'Silakan login untuk melihat keranjang Anda.' : 'Silakan login untuk melihat riwayat pesanan Anda.'),
+                      content: Text(
+                        index == 1 ? 'Silakan login untuk melihat produk favorit Anda.' : 
+                        index == 2 ? 'Silakan login untuk melihat keranjang Anda.' : 
+                        'Silakan login untuk melihat riwayat pesanan Anda.'
+                      ),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       actions: [
                         TextButton(
@@ -103,6 +111,10 @@ class _CustomerMainPageState extends State<CustomerMainPage> {
               const BottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded),
                 label: 'Beranda',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.favorite_rounded),
+                label: 'Favorit',
               ),
               BottomNavigationBarItem(
                 icon: BlocBuilder<CartCubit, CartState>(

@@ -7,10 +7,12 @@ import '../../../transaction/data/models/transaction_model.dart';
 import '../../../admin/data/models/voucher_model.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/presentation/cubit/auth_state.dart';
+import '../widgets/product_detail_sheet.dart';
 import 'payment_page.dart';
 
 class CartCheckoutPage extends StatefulWidget {
-  const CartCheckoutPage({super.key});
+  final VoidCallback? onNavigateToHome;
+  const CartCheckoutPage({super.key, this.onNavigateToHome});
 
   @override
   State<CartCheckoutPage> createState() => _CartCheckoutPageState();
@@ -47,6 +49,14 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
     }
   }
 
+  void _handleTambahMenuLain() {
+    if (widget.onNavigateToHome != null) {
+      widget.onNavigateToHome!();
+    } else if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   void dispose() {
     _voucherController.dispose();
@@ -73,14 +83,33 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
         builder: (context, state) {
           if (state.items.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shopping_bag_outlined, size: 100, color: Colors.brown.shade200),
-                  const SizedBox(height: 16),
-                  const Text('Keranjang Anda Kosong', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                  const Text('Gunakan navigasi di bawah untuk kembali ke Beranda', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.shopping_bag_outlined, size: 90, color: Colors.brown.shade200),
+                    const SizedBox(height: 16),
+                    const Text('Keranjang Anda Kosong', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))),
+                    const SizedBox(height: 8),
+                    const Text('Belum ada menu yang ditambahkan ke keranjang.', style: TextStyle(fontSize: 14, color: Colors.grey), textAlign: TextAlign.center),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: 220,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF5D4037),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: _handleTambahMenuLain,
+                        icon: const Icon(Icons.restaurant_menu),
+                        label: const Text('Pilih Menu Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -90,9 +119,30 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.all(20),
-                  itemCount: state.items.length,
+                  itemCount: state.items.length + 1, // +1 for "Tambah Menu Lain" button at bottom of list
                   separatorBuilder: (_, __) => const SizedBox(height: 16),
                   itemBuilder: (context, i) {
+                    if (i == state.items.length) {
+                      // Button "Tambah Menu Lain" under orders list
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 8),
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF5D4037),
+                            side: const BorderSide(color: Color(0xFF5D4037), width: 1.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: _handleTambahMenuLain,
+                          icon: const Icon(Icons.add_circle_outline, size: 20),
+                          label: const Text(
+                            'Tambah Menu Lain',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ),
+                      );
+                    }
+
                     final item = state.items[i];
                     return Container(
                       padding: const EdgeInsets.all(12),
@@ -105,37 +155,88 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
                       ),
                       child: Row(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              item.product.imageUrl,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: Colors.grey[200]),
+                          GestureDetector(
+                            onTap: () => ProductDetailSheet.show(
+                              context,
+                              item.product,
+                              initialToppings: item.selectedToppings,
+                              initialQuantity: item.quantity,
+                              existingCartItem: item,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                item.product.imageUrl,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: Colors.grey[200]),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                const SizedBox(height: 4),
-                                Text(formatRupiah(item.product.price), style: const TextStyle(color: Color(0xFF8D6E63), fontWeight: FontWeight.w600)),
-                              ],
+                            child: GestureDetector(
+                              onTap: () => ProductDetailSheet.show(
+                                context,
+                                item.product,
+                                initialToppings: item.selectedToppings,
+                                initialQuantity: item.quantity,
+                                existingCartItem: item,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.product.name,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Icon(Icons.edit_note, size: 20, color: Color(0xFF8D6E63)),
+                                    ],
+                                  ),
+                                  if (item.selectedToppings.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '+ ${item.toppingsText}',
+                                      style: const TextStyle(color: Color(0xFF5D4037), fontSize: 12, fontStyle: FontStyle.italic),
+                                    ),
+                                  ],
+                                  if (item.notes.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Catatan: "${item.notes}"',
+                                      style: TextStyle(color: Colors.brown.shade700, fontSize: 11, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
+                                  if (item.selectedToppings.isEmpty && item.notes.isEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      'Ketuk untuk edit opsi',
+                                      style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 4),
+                                  Text(formatRupiah(item.unitPrice), style: const TextStyle(color: Color(0xFF8D6E63), fontWeight: FontWeight.w600)),
+                                ],
+                              ),
                             ),
                           ),
                           Row(
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                                onPressed: () => context.read<CartCubit>().decreaseQuantity(item.product),
+                                onPressed: () => context.read<CartCubit>().decreaseCartItem(item),
                               ),
                               Text('${item.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                               IconButton(
                                 icon: const Icon(Icons.add_circle, color: Color(0xFF5D4037)),
-                                onPressed: () => context.read<CartCubit>().addProduct(item.product),
+                                onPressed: () => context.read<CartCubit>().increaseCartItem(item),
                               ),
                             ],
                           )
@@ -164,104 +265,100 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
                             child: TextField(
                               controller: _voucherController,
                               decoration: InputDecoration(
-                                hintText: 'Punya kode voucher?',
-                                hintStyle: const TextStyle(fontSize: 14),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                hintText: 'Kode Voucher (opsional)',
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                suffixIcon: state.appliedVoucher != null
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, color: Colors.red),
+                                        onPressed: () {
+                                          context.read<CartCubit>().removeVoucher();
+                                          _voucherController.clear();
+                                        },
+                                      )
+                                    : null,
                               ),
-                              textCapitalization: TextCapitalization.characters,
                             ),
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8D6E63),
+                              backgroundColor: const Color(0xFF5D4037),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
                             onPressed: _applyVoucher,
-                            child: const Text('Terapkan'),
+                            child: const Text('Gunakan'),
                           ),
                         ],
                       ),
-                      if (state.appliedVoucher != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Voucher: ${state.appliedVoucher!.code}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                              InkWell(
-                                onTap: () {
-                                  _voucherController.clear();
-                                  context.read<CartCubit>().removeVoucher();
-                                },
-                                child: const Text('Hapus', style: TextStyle(color: Colors.red, fontSize: 12)),
-                              ),
-                            ],
-                          ),
+                      if (state.appliedVoucher != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.confirmation_number, color: Colors.green, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Voucher ${state.appliedVoucher!.code} terpasang (-${formatRupiah(state.discount)})',
+                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ],
                         ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Divider(height: 1),
-                      ),
+                      ],
+                      const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Subtotal', style: TextStyle(color: Colors.grey)),
-                          Text(formatRupiah(state.subtotal), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(formatRupiah(state.subtotal), style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Pajak (11%)', style: TextStyle(color: Colors.grey)),
-                          Text(formatRupiah(state.tax), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          const Text('PPN (11%)', style: TextStyle(color: Colors.grey)),
+                          Text(formatRupiah(state.tax), style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       if (state.discount > 0) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Diskon', style: TextStyle(color: Colors.green)),
-                            Text('- ${formatRupiah(state.discount)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                            const Text('Diskon Voucher', style: TextStyle(color: Colors.green)),
+                            Text('-${formatRupiah(state.discount)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ],
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(height: 1),
-                      ),
+                      const Divider(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total Pembayaran', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text(formatRupiah(state.total), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: Color(0xFF3E2723))),
+                          const Text('Total Pembayaran', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text(formatRupiah(state.total), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF5D4037))),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
-                        height: 56,
+                        height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3E2723),
+                            backgroundColor: const Color(0xFF5D4037),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 5,
                           ),
-                          onPressed: () async {
+                          onPressed: () {
                             try {
-                              final state = context.read<CartCubit>().state;
                               final authState = context.read<AuthCubit>().state;
                               String? currentUserId;
                               if (authState is AuthAuthenticated) {
                                 currentUserId = authState.user.id;
                               }
-                              
+
                               final newTransaction = TransactionRecord(
                                 id: 'TRX-${DateTime.now().millisecondsSinceEpoch}',
                                 date: DateTime.now(),
@@ -276,11 +373,14 @@ class _CartCheckoutPageState extends State<CartCheckoutPage> {
                                     .map((item) => OrderItemRecord(
                                           productId: item.product.id,
                                           productName: item.product.name,
-                                          price: item.product.price,
+                                          price: item.unitPrice,
                                           quantity: item.quantity,
                                           imageUrl: item.product.imageUrl,
+                                          toppings: item.selectedToppings,
+                                          notes: item.notes,
                                         ))
                                     .toList(),
+                                status: 'pending', // Set status to pending
                               );
                               
                               if (context.mounted) {

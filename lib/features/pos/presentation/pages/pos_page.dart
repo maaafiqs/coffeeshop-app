@@ -5,6 +5,7 @@ import '../../../product/data/models/product_model.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/database/database_helper.dart';
 import '../../../transaction/data/models/transaction_model.dart';
+import '../../../shop/presentation/widgets/product_detail_sheet.dart';
 
 class PosPage extends StatelessWidget {
   const PosPage({super.key});
@@ -159,20 +160,32 @@ class PosPage extends StatelessWidget {
                   itemBuilder: (context, i) {
                     final item = state.items[i];
                     return ListTile(
+                      onTap: () => ProductDetailSheet.show(
+                        context,
+                        item.product,
+                        initialToppings: item.selectedToppings,
+                        initialQuantity: item.quantity,
+                        existingCartItem: item,
+                      ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       title: Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      subtitle: Text(formatRupiah(item.product.price), style: const TextStyle(fontSize: 13)),
+                      subtitle: Text(
+                        item.selectedToppings.isNotEmpty
+                            ? '${formatRupiah(item.unitPrice)}\n+ ${item.toppingsText}'
+                            : formatRupiah(item.unitPrice),
+                        style: const TextStyle(fontSize: 13),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                            onPressed: () => context.read<CartCubit>().decreaseQuantity(item.product),
+                            onPressed: () => context.read<CartCubit>().decreaseCartItem(item),
                           ),
                           Text('${item.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                            onPressed: () => context.read<CartCubit>().addProduct(item.product),
+                            onPressed: () => context.read<CartCubit>().increaseCartItem(item),
                           ),
                         ],
                       ),
@@ -183,97 +196,101 @@ class PosPage extends StatelessWidget {
             ),
           ),
 
-          // Ringkasan Pembayaran
+          // Checkout Bar
           BlocBuilder<CartCubit, CartState>(
             builder: (context, state) {
+              if (state.items.isEmpty) return const SizedBox.shrink();
               return Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Subtotal:', style: TextStyle(color: Colors.grey.shade700)),
-                          Text(formatRupiah(state.subtotal))
-                        ]),
-                    const SizedBox(height: 8),
-                    Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Pajak (11%):', style: TextStyle(color: Colors.grey.shade700)),
-                          Text(formatRupiah(state.tax))
-                        ]),
-                    const Divider(height: 24),
-                    Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                          Text(formatRupiah(state.total),
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.blue.shade800))
-                        ]),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade800,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: state.items.isEmpty
-                            ? null
-                            : () async {
-                                try {
-                                  final newTransaction = TransactionRecord(
-                                    id: 'TRX-ADM-${DateTime.now().millisecondsSinceEpoch}',
-                                    date: DateTime.now(),
-                                    subtotal: state.subtotal,
-                                    tax: state.tax,
-                                    discount: state.discount,
-                                    total: state.total,
-                                    paymentAmount: state.total,
-                                    change: 0.0,
-                                    userId: 'admin',
-                                    items: state.items
-                                        .map((item) => OrderItemRecord(
-                                              productId: item.product.id,
-                                              productName: item.product.name,
-                                              price: item.product.price,
-                                              quantity: item.quantity,
-                                              imageUrl: item.product.imageUrl,
-                                            ))
-                                        .toList(),
-                                  );
-                                  await DatabaseHelper.instance.createTransaction(newTransaction);
-                                  
-                                  if (context.mounted) {
-                                    context.read<CartCubit>().clearCart();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Pembayaran Berhasil!'), backgroundColor: Colors.green),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Gagal checkout: $e'), backgroundColor: Colors.red),
-                                    );
-                                  }
-                                }
-                              },
-                        child: const Text('BAYAR SEKARANG', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Text('Subtotal', style: TextStyle(color: Colors.grey)),
+                          Text(formatRupiah(state.subtotal), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
                       ),
-                    )
-                  ],
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('PPN (11%)', style: TextStyle(color: Colors.grey)),
+                          Text(formatRupiah(state.tax), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text(formatRupiah(state.total), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF5D4037))),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5D4037),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            try {
+                              final newTransaction = TransactionRecord(
+                                id: 'TRX-${DateTime.now().millisecondsSinceEpoch}',
+                                date: DateTime.now(),
+                                subtotal: state.subtotal,
+                                tax: state.tax,
+                                discount: state.discount,
+                                total: state.total,
+                                paymentAmount: state.total,
+                                change: 0.0,
+                                userId: 'admin',
+                                items: state.items
+                                    .map((item) => OrderItemRecord(
+                                          productId: item.product.id,
+                                          productName: item.product.name,
+                                          price: item.unitPrice,
+                                          quantity: item.quantity,
+                                          imageUrl: item.product.imageUrl,
+                                          toppings: item.selectedToppings,
+                                        ))
+                                    .toList(),
+                              );
+                              await DatabaseHelper.instance.createTransaction(newTransaction);
+                              
+                              if (context.mounted) {
+                                context.read<CartCubit>().clearCart();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Pembayaran Berhasil!'), backgroundColor: Colors.green),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Gagal checkout: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            }
+                          },
+                          child: const Text('BAYAR SEKARANG', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
-          )
+          ),
         ],
       ),
     );

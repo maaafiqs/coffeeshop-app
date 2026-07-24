@@ -7,6 +7,8 @@ import 'store_profile_page.dart';
 import 'admin_notifications_page.dart';
 import 'account_security_page.dart';
 
+import 'topping_management_page.dart';
+
 class AdminSettingsPage extends StatelessWidget {
   const AdminSettingsPage({super.key});
 
@@ -37,6 +39,13 @@ class AdminSettingsPage extends StatelessWidget {
           _buildSettingsItem(icon: Icons.store, title: 'Profil Toko', onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreProfilePage()));
           }),
+          _buildSettingsItem(
+            icon: Icons.extension, 
+            title: 'Kelola Topping Produk', 
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ToppingManagementPage()));
+            }
+          ),
           _buildSettingsItem(icon: Icons.print, title: 'Pengaturan Printer', onTap: () {}),
           _buildSettingsItem(
               icon: Icons.local_offer, 

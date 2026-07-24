@@ -3,6 +3,7 @@ import 'admin_dashboard_page.dart';
 import 'admin_settings_page.dart';
 import 'sales_report_page.dart';
 import 'employee_management_page.dart';
+import 'admin_order_management_page.dart';
 
 class AdminMainPage extends StatefulWidget {
   const AdminMainPage({super.key});
@@ -16,6 +17,7 @@ class _AdminMainPageState extends State<AdminMainPage> {
 
   final List<Widget> _pages = [
     const AdminDashboardPage(),
+    const AdminOrderManagementPage(),
     const SalesReportPage(),
     const EmployeeManagementPage(),
     const AdminSettingsPage(),
@@ -56,6 +58,10 @@ class _AdminMainPageState extends State<AdminMainPage> {
               BottomNavigationBarItem(
                 icon: Icon(Icons.inventory_2_rounded),
                 label: 'Katalog',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.assignment_rounded),
+                label: 'Pesanan',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.bar_chart_rounded),

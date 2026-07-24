@@ -4,6 +4,9 @@ import '../../../transaction/data/models/transaction_model.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class SalesReportPage extends StatefulWidget {
   const SalesReportPage({super.key});
@@ -16,6 +19,8 @@ class _SalesReportPageState extends State<SalesReportPage> {
   List<TransactionRecord> _transactions = [];
   int _totalUsers = 0;
   bool _isLoading = true;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -25,7 +30,16 @@ class _SalesReportPageState extends State<SalesReportPage> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final tx = await DatabaseHelper.instance.readAllTransactions();
+    
+    List<TransactionRecord> tx;
+    if (_startDate != null && _endDate != null) {
+      // Create a new end date that is at the very end of the selected day
+      final endOfDay = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+      tx = await DatabaseHelper.instance.readTransactionsByDateRange(_startDate!, endOfDay);
+    } else {
+      tx = await DatabaseHelper.instance.readAllTransactions();
+    }
+    
     final users = await DatabaseHelper.instance.readAllUsersByRole('customer');
     if (mounted) {
       setState(() {
@@ -54,14 +68,26 @@ class _SalesReportPageState extends State<SalesReportPage> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: () => _generatePdf(context),
+            tooltip: 'Export PDF',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
+            onPressed: () {
+              setState(() {
+                _startDate = null;
+                _endDate = null;
+              });
+              _loadData();
+            },
           ),
         ],
       ),
       body: CustomScrollView(
         slivers: [
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          SliverToBoxAdapter(child: _buildFilterSection()),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(child: _buildSummaryCards()),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
           SliverToBoxAdapter(child: _buildIncomeChart()),
@@ -266,6 +292,132 @@ class _SalesReportPageState extends State<SalesReportPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () async {
+                final DateTimeRange? picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                  initialDateRange: _startDate != null && _endDate != null
+                      ? DateTimeRange(start: _startDate!, end: _endDate!)
+                      : null,
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: Color(0xFF5D4037),
+                          onPrimary: Colors.white,
+                          onSurface: Colors.black,
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  setState(() {
+                    _startDate = picked.start;
+                    _endDate = picked.end;
+                  });
+                  _loadData();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _startDate != null && _endDate != null
+                          ? '${DateFormat('dd MMM yyyy').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}'
+                          : 'Filter Tanggal',
+                      style: TextStyle(color: _startDate != null ? Colors.black87 : Colors.grey),
+                    ),
+                    const Icon(Icons.date_range, color: Color(0xFF5D4037)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_startDate != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.clear, color: Colors.red),
+              onPressed: () {
+                setState(() {
+                  _startDate = null;
+                  _endDate = null;
+                });
+                _loadData();
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generatePdf(BuildContext context) async {
+    final pdf = pw.Document();
+
+    final title = _startDate != null && _endDate != null
+        ? 'Laporan Penjualan (${DateFormat('dd MMM yyyy').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)})'
+        : 'Laporan Penjualan Keseluruhan';
+
+    final totalIncome = _transactions.fold(0.0, (sum, tx) => sum + tx.total);
+    final totalOrders = _transactions.length;
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return [
+            pw.Header(
+              level: 0,
+              child: pw.Text(title, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('Total Pendapatan: ${formatRupiah(totalIncome)}'),
+                pw.Text('Total Pesanan: $totalOrders'),
+              ],
+            ),
+            pw.SizedBox(height: 20),
+            pw.TableHelper.fromTextArray(
+              headers: ['ID', 'Tanggal', 'Items', 'Total'],
+              data: _transactions.map((tx) {
+                return [
+                  tx.id,
+                  _formatDate(tx.date),
+                  tx.items.fold<int>(0, (sum, i) => sum + i.quantity).toString(),
+                  formatRupiah(tx.total),
+                ];
+              }).toList(),
+            ),
+          ];
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Laporan_Penjualan_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
   }
 }

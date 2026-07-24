@@ -5,6 +5,7 @@ import '../../features/transaction/data/models/transaction_model.dart';
 import '../../features/admin/data/models/voucher_model.dart';
 import '../../features/auth/data/models/user_model.dart';
 import '../../features/admin/data/models/banner_model.dart';
+import '../../features/product/data/models/topping_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -24,7 +25,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -93,6 +94,39 @@ CREATE TABLE IF NOT EXISTS banners (
 ''');
     }
 
+    if (oldVersion < 8) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS favorites (
+  id TEXT PRIMARY KEY,
+  userId TEXT NOT NULL,
+  productId TEXT NOT NULL
+)
+''');
+      try {
+        await db.execute("ALTER TABLE transactions ADD COLUMN status TEXT DEFAULT 'completed'");
+      } catch (_) {}
+    }
+
+    if (oldVersion < 9) {
+      await db.execute('''
+CREATE TABLE IF NOT EXISTS toppings (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  price REAL NOT NULL,
+  category TEXT NOT NULL
+)
+''');
+      for (final t in defaultSeedToppings) {
+        await db.insert('toppings', t.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    }
+
+    if (oldVersion < 10) {
+      try {
+        await db.execute("ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0");
+      } catch (_) {}
+    }
+
     // Seed default admin account
     await db.execute('''
 INSERT OR IGNORE INTO users (id, name, email, password, role)
@@ -119,12 +153,25 @@ CREATE TABLE products (
 ''');
 
     await db.execute('''
+CREATE TABLE toppings (
+  id $idType,
+  name $textType,
+  price $realType,
+  category $textType
+)
+''');
+    for (final t in defaultSeedToppings) {
+      await db.insert('toppings', t.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    await db.execute('''
 CREATE TABLE users (
   id $idType,
   name $textType,
   email $textType,
   password $textType,
-  role $textType
+  role $textType,
+  points INTEGER DEFAULT 0
 )
 ''');
 
@@ -139,7 +186,16 @@ CREATE TABLE transactions (
   paymentAmount $realType,
   change $realType,
   items TEXT,
-  userId TEXT
+  userId TEXT,
+  status TEXT
+)
+''');
+
+    await db.execute('''
+CREATE TABLE favorites (
+  id $textType PRIMARY KEY,
+  userId $textType,
+  productId $textType
 )
 ''');
 
@@ -277,8 +333,20 @@ CREATE TABLE banners (
 
   Future<List<TransactionRecord>> readAllTransactions() async {
     final db = await instance.database;
-    const orderBy = 'date DESC';
+    final orderBy = 'date DESC';
     final result = await db.query('transactions', orderBy: orderBy);
+    return result.map((json) => TransactionRecord.fromMap(json)).toList();
+  }
+
+  Future<List<TransactionRecord>> readTransactionsByDateRange(DateTime start, DateTime end) async {
+    final db = await instance.database;
+    final orderBy = 'date DESC';
+    final result = await db.query(
+      'transactions',
+      where: 'date >= ? AND date <= ?',
+      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      orderBy: orderBy,
+    );
     return result.map((json) => TransactionRecord.fromMap(json)).toList();
   }
 
@@ -298,6 +366,41 @@ CREATE TABLE banners (
   Future<List<Map<String, dynamic>>> readAllVouchers() async {
     final db = await instance.database;
     return await db.query('vouchers');
+  }
+
+  Future<VoucherModel?> getVoucherByCode(String code) async {
+    final db = await instance.database;
+    final maps = await db.query(
+      'vouchers',
+      where: 'code = ?',
+      whereArgs: [code.toUpperCase()],
+    );
+
+    if (maps.isNotEmpty) {
+      return VoucherModel.fromMap(maps.first);
+    } else {
+      return null;
+    }
+  }
+
+  Future<void> toggleFavorite(String userId, String productId) async {
+    final db = await instance.database;
+    final existing = await db.query('favorites', where: 'userId = ? AND productId = ?', whereArgs: [userId, productId]);
+    if (existing.isEmpty) {
+      await db.insert('favorites', {
+        'id': '${userId}_$productId',
+        'userId': userId,
+        'productId': productId
+      });
+    } else {
+      await db.delete('favorites', where: 'userId = ? AND productId = ?', whereArgs: [userId, productId]);
+    }
+  }
+
+  Future<List<String>> getUserFavorites(String userId) async {
+    final db = await instance.database;
+    final results = await db.query('favorites', where: 'userId = ?', whereArgs: [userId]);
+    return results.map((e) => e['productId'] as String).toList();
   }
 
   Future<Map<String, dynamic>?> readVoucher(String code) async {
@@ -385,6 +488,77 @@ CREATE TABLE banners (
   Future<void> deleteBanner(String id) async {
     final db = await instance.database;
     await db.delete('banners', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // --- CRUD Operations for Toppings ---
+  Future<void> createTopping(Topping topping) async {
+    final db = await instance.database;
+    await db.insert('toppings', topping.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Topping>> readAllToppings() async {
+    final db = await instance.database;
+    final result = await db.query('toppings');
+    if (result.isEmpty) {
+      for (final t in defaultSeedToppings) {
+        await db.insert('toppings', t.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      final seededResult = await db.query('toppings');
+      return seededResult.map((json) => Topping.fromMap(json)).toList();
+    }
+    return result.map((json) => Topping.fromMap(json)).toList();
+  }
+
+  Future<List<Topping>> readToppingsByCategory(String productCategory) async {
+    final allToppings = await readAllToppings();
+    final cat = productCategory.toLowerCase();
+
+    bool isFood = cat.contains('makan') || cat.contains('snack') || cat.contains('food') || cat.contains('roti') || cat.contains('dessert');
+    bool isDrink = cat.contains('kopi') || cat.contains('minum') || cat.contains('drink') || cat.contains('tea') || cat.contains('frappe') || cat.contains('milk') || cat.contains('juara') || cat.contains('latte');
+
+    return allToppings.where((t) {
+      final tCat = t.category.toLowerCase();
+      if (tCat == 'semua') return true;
+      if (isFood && tCat.contains('makan')) return true;
+      if (isDrink && tCat.contains('minum')) return true;
+      if (!isFood && !isDrink) return true;
+      return false;
+    }).toList();
+  }
+
+  Future<void> updateTopping(Topping topping) async {
+    final db = await instance.database;
+    await db.update('toppings', topping.toMap(), where: 'id = ?', whereArgs: [topping.id]);
+  }
+
+  Future<void> deleteTopping(String id) async {
+    final db = await instance.database;
+    await db.delete('toppings', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<UserModel?> getUserById(String id) async {
+    final db = await instance.database;
+    final maps = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    if (maps.isNotEmpty) {
+      return UserModel.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  Future<int> updateUserPoints(String userId, int pointsToAdd) async {
+    final db = await instance.database;
+    final user = await getUserById(userId);
+    if (user != null) {
+      final newPoints = user.points + pointsToAdd;
+      await db.update(
+        'users',
+        {'points': newPoints},
+        where: 'id = ?',
+        whereArgs: [userId],
+      );
+      return newPoints;
+    }
+    return 0;
   }
 
   Future close() async {

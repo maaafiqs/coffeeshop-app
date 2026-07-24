@@ -1,14 +1,32 @@
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'features/pos/presentation/cubit/cart_cubit.dart';
 import 'features/product/presentation/cubit/product_cubit.dart';
 import 'features/shop/presentation/pages/customer_main_page.dart';
+import 'features/shop/presentation/cubit/favorite_cubit.dart';
 
+import 'dart:io' show Platform;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  
+  if (kIsWeb) {
+    // Database unsupported on web without custom impl, but handle gracefully
+  } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
+  runApp(
+    DevicePreview(
+      enabled: !kReleaseMode,
+      builder: (context) => const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -21,8 +39,11 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (context) => AuthCubit()),
         BlocProvider(create: (context) => ProductCubit()),
         BlocProvider(create: (context) => CartCubit()),
+        BlocProvider(create: (context) => FavoriteCubit()),
       ],
       child: MaterialApp(
+        locale: DevicePreview.locale(context),
+        builder: DevicePreview.appBuilder,
         title: 'Maaafiqs Coffee',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

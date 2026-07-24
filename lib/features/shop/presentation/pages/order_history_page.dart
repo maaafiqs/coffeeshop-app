@@ -16,6 +16,38 @@ class OrderHistoryPage extends StatefulWidget {
 class _OrderHistoryPageState extends State<OrderHistoryPage> {
   List<TransactionRecord> _transactions = [];
   bool _isLoading = true;
+  String _searchQuery = '';
+  String _selectedStatus = 'Semua';
+
+  final List<String> _statusFilters = ['Semua', 'Menunggu', 'Disiapkan', 'Siap Diambil', 'Selesai'];
+
+  List<TransactionRecord> get _filteredTransactions {
+    return _transactions.where((tx) {
+      // Filter by status
+      bool matchStatus = false;
+      if (_selectedStatus == 'Semua') {
+        matchStatus = true;
+      } else if (_selectedStatus == 'Menunggu' && tx.status == 'pending') {
+        matchStatus = true;
+      } else if (_selectedStatus == 'Disiapkan' && tx.status == 'preparing') {
+        matchStatus = true;
+      } else if (_selectedStatus == 'Siap Diambil' && tx.status == 'ready') {
+        matchStatus = true;
+      } else if (_selectedStatus == 'Selesai' && tx.status == 'completed') {
+        matchStatus = true;
+      }
+
+      // Filter by search query (id or date)
+      bool matchSearch = true;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final dateStr = _formatDate(tx.date).toLowerCase();
+        matchSearch = tx.id.toLowerCase().contains(q) || dateStr.contains(q);
+      }
+
+      return matchStatus && matchSearch;
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -166,29 +198,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                                     ),
                                   ],
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: Colors.green.shade200),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.check_circle_rounded, size: 14, color: Colors.green[700]),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Selesai',
-                                        style: TextStyle(
-                                          color: Colors.green[800],
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                              _buildStatusBadge(tx.status),
                               ],
                             ),
                           ],
@@ -270,7 +280,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                                   ),
                                   const SizedBox(width: 14),
 
-                                  // Product Title & Qty
+                                  // Product Title, Toppings & Qty
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,6 +293,28 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                                             color: Color(0xFF3E2723),
                                           ),
                                         ),
+                                        if (item.toppings.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '+ ${item.toppingsText}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF5D4037),
+                                              fontSize: 12,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ],
+                                        if (item.notes.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Catatan: "${item.notes}"',
+                                            style: TextStyle(
+                                              color: Colors.brown.shade700,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
                                         const SizedBox(height: 4),
                                         Text(
                                           '${formatRupiah(item.price)} × ${item.quantity}',
@@ -309,9 +341,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                             );
                           },
                         ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
 
-                      // Payment Summary Card
+                      // Payment Summary Section Header
                       const Text(
                         'Rincian Pembayaran',
                         style: TextStyle(
@@ -321,6 +353,8 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                         ),
                       ),
                       const SizedBox(height: 12),
+
+                      // Payment Details Breakdown
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -340,15 +374,15 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Subtotal', style: TextStyle(color: Colors.grey)),
-                                Text(formatRupiah(tx.subtotal), style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(formatRupiah(tx.subtotal), style: const TextStyle(fontWeight: FontWeight.bold)),
                               ],
                             ),
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Pajak (11%)', style: TextStyle(color: Colors.grey)),
-                                Text(formatRupiah(tx.tax), style: const TextStyle(fontWeight: FontWeight.w600)),
+                                const Text('PPN (11%)', style: TextStyle(color: Colors.grey)),
+                                Text(formatRupiah(tx.tax), style: const TextStyle(fontWeight: FontWeight.bold)),
                               ],
                             ),
                             if (tx.discount > 0) ...[
@@ -356,15 +390,12 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Diskon', style: TextStyle(color: Colors.green)),
-                                  Text('- ${formatRupiah(tx.discount)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                  const Text('Diskon Voucher', style: TextStyle(color: Colors.green)),
+                                  Text('-${formatRupiah(tx.discount)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             ],
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Divider(height: 1),
-                            ),
+                            const Divider(height: 24),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -424,7 +455,12 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   Widget _buildTransactionCard(TransactionRecord tx) {
     final totalItemsCount = tx.items.fold<int>(0, (sum, item) => sum + item.quantity);
     final itemsSummary = tx.items.isNotEmpty
-        ? tx.items.map((i) => '${i.quantity}x ${i.productName}').join(', ')
+        ? tx.items.map((i) {
+            if (i.toppings.isNotEmpty) {
+              return '${i.quantity}x ${i.productName} (+${i.toppingsText})';
+            }
+            return '${i.quantity}x ${i.productName}';
+          }).join(', ')
         : 'Detail item tidak tersedia';
 
     return Container(
@@ -454,14 +490,21 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      tx.id,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF3E2723)),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tx.id,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF3E2723)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _formatDate(tx.date),
+                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
                     ),
-                    Text(
-                      _formatDate(tx.date),
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
+                    _buildStatusBadge(tx.status),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -525,38 +568,168 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
         title: const Text('Riwayat Pemesanan', style: TextStyle(color: Color(0xFF3E2723), fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Color(0xFF3E2723)),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          _fetchTransactions();
-          await Future.delayed(const Duration(milliseconds: 500));
-        },
-        color: const Color(0xFF5D4037),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF5D4037)))
-            : _transactions.isEmpty
-                ? Stack(
-                    children: [
-                      ListView(),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.history_toggle_off, size: 80, color: Colors.grey.shade400),
-                            const SizedBox(height: 16),
-                            const Text('Belum ada riwayat pesanan', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _transactions.length,
-                    itemBuilder: (context, index) {
-                      final trx = _transactions[index];
-                      return _buildTransactionCard(trx);
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Cari ID Pesanan atau Tanggal...',
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
+            ),
+          ),
+          
+          // Status Filters
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: _statusFilters.length,
+              itemBuilder: (context, index) {
+                final filter = _statusFilters[index];
+                final isSelected = _selectedStatus == filter;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ChoiceChip(
+                    label: Text(filter),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedStatus = filter;
+                        });
+                      }
                     },
+                    selectedColor: const Color(0xFF5D4037),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: isSelected ? const Color(0xFF5D4037) : Colors.grey.shade300,
+                      ),
+                    ),
                   ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // List View
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                _fetchTransactions();
+                await Future.delayed(const Duration(milliseconds: 500));
+              },
+              color: const Color(0xFF5D4037),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF5D4037)))
+                  : _filteredTransactions.isEmpty
+                      ? Stack(
+                          children: [
+                            ListView(),
+                            Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.history_toggle_off, size: 80, color: Colors.grey.shade400),
+                                  const SizedBox(height: 16),
+                                  const Text('Pesanan tidak ditemukan', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _filteredTransactions.length,
+                          itemBuilder: (context, index) {
+                            final trx = _filteredTransactions[index];
+                            return _buildTransactionCard(trx);
+                          },
+                        ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color bgColor;
+    Color textColor;
+    IconData icon;
+    String label;
+
+    switch (status.toLowerCase()) {
+      case 'pending':
+        bgColor = Colors.orange.shade50;
+        textColor = Colors.orange.shade800;
+        icon = Icons.access_time_filled;
+        label = 'Menunggu';
+        break;
+      case 'preparing':
+        bgColor = Colors.blue.shade50;
+        textColor = Colors.blue.shade800;
+        icon = Icons.soup_kitchen;
+        label = 'Disiapkan';
+        break;
+      case 'ready':
+        bgColor = Colors.purple.shade50;
+        textColor = Colors.purple.shade800;
+        icon = Icons.takeout_dining;
+        label = 'Siap Diambil';
+        break;
+      case 'completed':
+      default:
+        bgColor = Colors.green.shade50;
+        textColor = Colors.green.shade800;
+        icon = Icons.check_circle_rounded;
+        label = 'Selesai';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: textColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
