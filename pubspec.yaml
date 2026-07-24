@@ -48,6 +48,7 @@ dependencies:
   device_preview: ^1.2.0
   firebase_core: ^4.7.0
   cloud_firestore: ^6.3.0
+  sqflite_common_ffi_web: ^0.4.5+4
 
 dev_dependencies:
   flutter_test:

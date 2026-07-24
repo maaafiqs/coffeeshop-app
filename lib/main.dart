@@ -9,6 +9,7 @@ import 'features/shop/presentation/cubit/favorite_cubit.dart';
 
 import 'dart:io' show Platform;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
@@ -25,7 +26,7 @@ void main() async {
   }
 
   if (kIsWeb) {
-    // Database unsupported on web without custom impl, but handle gracefully
+    databaseFactory = databaseFactoryFfiWeb;
   } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;

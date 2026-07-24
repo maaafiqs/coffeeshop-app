@@ -7,6 +7,8 @@ import '../../features/auth/data/models/user_model.dart';
 import '../../features/admin/data/models/banner_model.dart';
 import '../../features/product/data/models/topping_model.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
@@ -20,6 +22,14 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDB(String filePath) async {
+    if (kIsWeb) {
+      return await openDatabase(
+        inMemoryDatabasePath,
+        version: 10,
+        onCreate: _createDB,
+        onUpgrade: _upgradeDB,
+      );
+    }
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
